@@ -19,11 +19,11 @@ start_time = time.time()
 #Parameters
 a = 20
 l = 11
-s = 6
+s = 4
 
 for label in np.arange(10):
     print(label)
-    tmp = np.load(f"SavedData_E{label}_l{l}_s{s}_a{a}.npy",allow_pickle=True)
+    tmp = np.load(f"../PDSaveData/SavedData_E{label}_l{l}_s{s}_a{a}.npy",allow_pickle=True)
     if label == 0:
        Zload=tmp.copy()
     else:
@@ -92,7 +92,7 @@ print("Classification Report:\n", class_report_MLP)
 
 with open('results.txt', 'w') as f:
 
-    f.write(f"l={l}, s={s}, w={w}")
+    f.write(f"l={l}, s={s}, a={a}")
     f.write(f"Execution time: {(time.time() - start_time)} seconds ---")
 
     f.write(f" ----------- Random Forest ------------\n")
