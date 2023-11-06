@@ -9,7 +9,14 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.neural_network import MLPClassifier
+from multiprocessing import Process
 
+
+import json
+import time
+
+start_time = time.time()
+'''
 # ------------------------------------------- LOAD .npz FILES --------------------------------------------- #
 dictionary3D = {}  # dictionary to store all 3D files
 dictionary2D = {}  # dictionary to store all 2D files
@@ -101,11 +108,13 @@ def featuresExtraction(data, w, s, features,num_autocorrelation_values=20):
         features['skewness'].extend([skew(window, bias=False)])  # Set bias=False to reduce bias
         features['kurtosis'].extend([kurtosis(window, bias=False)])  # Set bias=False to reduce bias
 
-        autocorrelation_x = np.correlate(window, window, mode='full')
-        autocorrelation_y = np.correlate(window, window, mode='full')
-        autocorrelation_z = np.correlate(window, window, mode='full')
-        autocorrelation = np.concatenate([autocorrelation_x, autocorrelation_y, autocorrelation_z])
+        #autocorrelation_x = np.correlate(window, window, mode='full')
+        #autocorrelation_y = np.correlate(window, window, mode='full')
+        #autocorrelation_z = np.correlate(window, window, mode='full')
+        #autocorrelation = np.concatenate([autocorrelation_x, autocorrelation_y, autocorrelation_z])
 
+        autocorrelation = np.correlate(window, window, mode='full')
+        #pdb.set_trace()
         # Append 20 equally distributed values from the autocorrelation
         autocorr_len = len(autocorrelation)
         step = autocorr_len // num_autocorrelation_values
@@ -126,12 +135,17 @@ def featuresExtraction(data, w, s, features,num_autocorrelation_values=20):
 allExercises = {f'E{i}': [] for i in range(10)}
 
 i = 0
+cnt=0;
 for k in dictionary3D.keys():
+    cnt = cnt+1
+    #if cnt > 10:
+    #   break
     l = 11
     s = 4
     v = dictionary3D[k].shape[0]
     w = window_size(l, s, v)
     print(f"file={k}, data length {v}, window size {w}")
+
     i = i + 1
     features = {
         'mean': [],  # will store 51 value (17 joint * 3 axis)
@@ -149,10 +163,10 @@ for k in dictionary3D.keys():
         'dc_bias': []
     }
 
-    if dictionary3D[k].shape[0] < 10 + (l - 1) * s:
-        dictionary3D[k]=np.concatenate((dictionary3D[k],np.zeros((((l - 1)*s-v+10),dictionary3D[k].shape[1],dictionary3D[k].shape[2]))),axis=0)
+    if dictionary3D[k].shape[0] < 11 + (l - 1) * s:
+        dictionary3D[k]=np.concatenate((dictionary3D[k],np.zeros((((l - 1)*s-v+11),dictionary3D[k].shape[1],dictionary3D[k].shape[2]))),axis=0)
         w = window_size(l, s, dictionary3D[k].shape[0])
-        print(f"........., new data length {dictionary3D[k].shape[0]}, new window size {w}")
+        print(f"........................, new data length {dictionary3D[k].shape[0]}, new window size {w}")
 
     for joint in range(dictionary3D[k].shape[1]):
 
@@ -168,8 +182,9 @@ for k in dictionary3D.keys():
         z_values = axis_values[:, 2]
 
         # Extract features for x, y, and z values
-        #if k == "E0_P1_T2_C2_seg0":
+        #if k == "E0_P1_T0_C0_seg8":
         #   pdb.set_trace()
+
         featuresExtraction(x_values, w, s, features)
         featuresExtraction(y_values, w, s, features)
         featuresExtraction(z_values, w, s, features)
@@ -199,7 +214,7 @@ for k in dictionary3D.keys():
 
 #----------------------------------------------------Random forest-----------------------------------------------------------------------
 print("                                Random forest                              \n\n")
-X, y = [], []
+X, y, Y = [], [], []
 # Define dictionaries to store TP, TN, FP, and FN for each exercise
 for exercise, features in allExercises.items():
     for feature in features:
@@ -207,12 +222,41 @@ for exercise, features in allExercises.items():
         if feature_values:  # Check if any non-empty values were appended
             X.append(feature_values)
             y.append(exercise)
+            Y.append(int(exercise[1:]))
+
+x=np.array(X)
+Y=np.array(Y).reshape(-1,1)
+Z=np.concatenate((x,Y),axis=1)
+np.save('SavedData',Z)
+
+
+for  label in np.unique(Z[:,-1]):
+     np.save(f"SavedData_E{label}_l{l}_s{s}_a{a}",Z[Z[:,-1]==label])
+'''
+
+l=11
+s=4
+a=20
+
+for label in np.arange(10):
+    print(label)
+    tmp = np.load(f"SavedData_E{label}_l{l}_s{s}_a{a}.npy",allow_pickle=True)
+    if label == 0:
+       Zload=tmp.copy()
+    else:
+       Zload=np.concatenate((Zload,tmp),axis=0)
+
+X=Zload[:,:-1]
+y=Zload[:,-1]
+
+pdb.set_trace()
+
 #
 # Initialize the imputer with the desired strategy (e.g., 'mean', 'median', or 'most_frequent')
-imputer = SimpleImputer(strategy='mean')
+#imputer = SimpleImputer(strategy='mean')
 
 # Fit and transform the imputer on your feature matrix
-X = imputer.fit_transform(X)
+#X = imputer.fit_transform(X)
 
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -264,3 +308,24 @@ print("precision" , precision_MLP)
 print("recall" , recall_MLP)
 print("f1 score " , f1_MLP)
 print("Classification Report:\n", class_report_MLP)
+
+with open('results.txt', 'w') as f:
+
+    f.write(f"l={l}, s={s}, w={w}")
+    f.write(f"Execution time: {(time.time() - start_time)} seconds ---")
+
+    f.write(f" ----------- Random Forest ------------\n")
+    f.write(f"Accuracy: {accuracy}\n")
+    f.write(f"precision: {precision}\n")
+    f.write(f"recall: {recall}\n")
+    f.write(f"f1 score: {f1}\n")
+    f.write(f"Classification Report: {class_report}\n")
+
+    f.write(f"----------- MLP -------------\n")
+    f.write(f"Accuracy: {accuracy_MLP}\n")
+    f.write(f"precision: {precision_MLP}\n")
+    f.write(f"recall: {recall_MLP}\n")
+    f.write(f"f1 score: {f1_MLP}\n")
+    f.write(f"Classification Report: {class_report_MLP}\n")
+
+print("--- %s seconds ---" % (time.time() - start_time))

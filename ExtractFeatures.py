@@ -9,7 +9,18 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.neural_network import MLPClassifier
+from multiprocessing import Process
 
+
+import json
+import time
+
+start_time = time.time()
+
+#Parameters
+a = 20
+l = 11
+s = 4
 # ------------------------------------------- LOAD .npz FILES --------------------------------------------- #
 dictionary3D = {}  # dictionary to store all 3D files
 dictionary2D = {}  # dictionary to store all 2D files
@@ -20,13 +31,13 @@ for npzFile in os.listdir(path):
     f = os.path.join(path, npzFile)
     if os.path.isfile(f):
         if "_3D" in f:
-            a = np.load(f)
+            fdata = np.load(f)
             # load the files into the dictionary
-            dictionary3D[npzFile.split('_3D')[0]] = a['reconstruction'][0, :, :, :]
+            dictionary3D[npzFile.split('_3D')[0]] = fdata['reconstruction'][0, :, :, :]
         # elif "_2D" in f:
-        #     a = np.load(f)
+        #     fdata = np.load(f)
         #     # load the files into the dictionary
-        #     dictionary2D[npzFile.split('_2D')[0]] = a['reconstruction'][0, :, :, :]
+        #     dictionary2D[npzFile.split('_2D')[0]] = fdata['reconstruction'][0, :, :, :]
 
 
 def window_size(l, s, v):
@@ -94,18 +105,15 @@ def extract_dc_bias(x):
     return dc_bias
 
 
-def featuresExtraction(data, w, s, features,num_autocorrelation_values=20):
+def featuresExtraction(data, w, s, features,num_autocorrelation_values):
     for window in sliding_window(data, w, s):
         features['mean'].extend([np.mean(window)])
         features['variance'].extend([np.var(window)])
         features['skewness'].extend([skew(window, bias=False)])  # Set bias=False to reduce bias
         features['kurtosis'].extend([kurtosis(window, bias=False)])  # Set bias=False to reduce bias
 
-        autocorrelation_x = np.correlate(window, window, mode='full')
-        autocorrelation_y = np.correlate(window, window, mode='full')
-        autocorrelation_z = np.correlate(window, window, mode='full')
-        autocorrelation = np.concatenate([autocorrelation_x, autocorrelation_y, autocorrelation_z])
-
+        autocorrelation = np.correlate(window, window, mode='full')
+        #pdb.set_trace()
         # Append 20 equally distributed values from the autocorrelation
         autocorr_len = len(autocorrelation)
         step = autocorr_len // num_autocorrelation_values
@@ -126,12 +134,15 @@ def featuresExtraction(data, w, s, features,num_autocorrelation_values=20):
 allExercises = {f'E{i}': [] for i in range(10)}
 
 i = 0
+cnt=0;
 for k in dictionary3D.keys():
-    l = 11
-    s = 4
+    cnt = cnt+1
+    #if cnt > 10:
+    #   break
     v = dictionary3D[k].shape[0]
     w = window_size(l, s, v)
     print(f"file={k}, data length {v}, window size {w}")
+
     i = i + 1
     features = {
         'mean': [],  # will store 51 value (17 joint * 3 axis)
@@ -149,10 +160,10 @@ for k in dictionary3D.keys():
         'dc_bias': []
     }
 
-    if dictionary3D[k].shape[0] < 10 + (l - 1) * s:
-        dictionary3D[k]=np.concatenate((dictionary3D[k],np.zeros((((l - 1)*s-v+10),dictionary3D[k].shape[1],dictionary3D[k].shape[2]))),axis=0)
+    if dictionary3D[k].shape[0] < int(a/2) + 1 + (l - 1) * s:
+        dictionary3D[k]=np.concatenate((dictionary3D[k],np.zeros((((l - 1)*s -v + int(a/2) + 1),dictionary3D[k].shape[1],dictionary3D[k].shape[2]))),axis=0)
         w = window_size(l, s, dictionary3D[k].shape[0])
-        print(f"........., new data length {dictionary3D[k].shape[0]}, new window size {w}")
+        print(f"........................, new data length {dictionary3D[k].shape[0]}, new window size {w}")
 
     for joint in range(dictionary3D[k].shape[1]):
 
@@ -160,7 +171,7 @@ for k in dictionary3D.keys():
         axis_values = dictionary3D[k][:, joint, :]
 
         # Apply z-score normalization to all axis values
-        axis_values = zscore(axis_values, axis=0)
+        #axis_values = zscore(axis_values, axis=0)
 
         # Split the normalized values into x, y, and z components
         x_values = axis_values[:, 0]
@@ -168,11 +179,17 @@ for k in dictionary3D.keys():
         z_values = axis_values[:, 2]
 
         # Extract features for x, y, and z values
-        #if k == "E0_P1_T2_C2_seg0":
-        #   pdb.set_trace()
-        featuresExtraction(x_values, w, s, features)
-        featuresExtraction(y_values, w, s, features)
-        featuresExtraction(z_values, w, s, features)
+        #if k == "E0_P1_T0_C0_seg8":
+        #pdb.set_trace()
+
+        featuresExtraction(x_values, w, s, features, a)
+        featuresExtraction(y_values, w, s, features, a)
+        featuresExtraction(z_values, w, s, features, a)
+
+        #for val in features.values():
+        #   if np.isnan(val).any():
+        #      pdb.set_trace()
+
 
     # so list containing 10 features[]....
     print(int(i), " :Done segment: " + k + "\n")
@@ -197,9 +214,7 @@ for k in dictionary3D.keys():
     elif k.startswith("E9_"):
         allExercises['E9'].append(features)
 
-#----------------------------------------------------Random forest-----------------------------------------------------------------------
-print("                                Random forest                              \n\n")
-X, y = [], []
+X, y, Y = [], [], []
 # Define dictionaries to store TP, TN, FP, and FN for each exercise
 for exercise, features in allExercises.items():
     for feature in features:
@@ -207,60 +222,15 @@ for exercise, features in allExercises.items():
         if feature_values:  # Check if any non-empty values were appended
             X.append(feature_values)
             y.append(exercise)
-#
-# Initialize the imputer with the desired strategy (e.g., 'mean', 'median', or 'most_frequent')
-imputer = SimpleImputer(strategy='mean')
+            Y.append(int(exercise[1:]))
 
-# Fit and transform the imputer on your feature matrix
-X = imputer.fit_transform(X)
+x=np.array(X)
+Y=np.array(Y).reshape(-1,1)
+Z=np.concatenate((x,Y),axis=1)
+np.save('SavedData',Z)
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-#-------------------------------
-# Create a Random Forest classifier
-rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+for  label in np.unique(Z[:,-1]):
+     np.save(f"SavedData_E{int(label)}_l{l}_s{s}_a{a}",Z[Z[:,-1]==label])
 
-# Train the classifier
-rf_classifier.fit(X_train, y_train)
-
-# Make predictions on the test set
-y_pred = rf_classifier.predict(X_test)
-
-# Evaluate the accuracy of the classifier
-accuracy = accuracy_score(y_test, y_pred)
-precision = precision_score(y_test, y_pred, average='weighted', zero_division=1)
-recall = recall_score(y_test, y_pred, average='weighted', zero_division=1)
-f1 = f1_score(y_test, y_pred, average='weighted', zero_division=1)
-class_report = classification_report(y_test, y_pred)
-
-print("Accuracy:", accuracy)
-print("precision" , precision)
-print("recall" , recall)
-print("f1 score " , f1)
-print("Classification Report:\n", class_report)
-
-#--------------------------------------MLP --------------------------------
-print("------------------------------------------------------------------------------")
-print("                                MLP Classifier                              \n")
-# Create an MLP classifier
-mlp_classifier = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=1000, random_state=42)
-
-# Train the MLP on the training data
-mlp_classifier.fit(X_train, y_train)
-
-# Make predictions on the test data
-y_pred_MLP = mlp_classifier.predict(X_test)
-
-# Calculate accuracy
-accuracy_MLP = accuracy_score(y_test, y_pred_MLP)
-precision_MLP = precision_score(y_test, y_pred_MLP, average='weighted', zero_division=1)
-recall_MLP = recall_score(y_test, y_pred_MLP, average='weighted', zero_division=1)
-f1_MLP = f1_score(y_test, y_pred_MLP, average='weighted', zero_division=1)
-class_report_MLP = classification_report(y_test, y_pred_MLP)
-
-print("Accuracy:", accuracy_MLP)
-print("precision" , precision_MLP)
-print("recall" , recall_MLP)
-print("f1 score " , f1_MLP)
-print("Classification Report:\n", class_report_MLP)
+print("--- %s seconds ---" % (time.time() - start_time))
