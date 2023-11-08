@@ -87,9 +87,9 @@ if __name__=='__main__':
           current_correct += (output == targets).float().sum() 
 
           if i%10 == 0:
-             print(f"Epoch {epoch+1}/{MaxEpoch} - minibatch {i+1}, Loss: {current_loss/((i+1)*batch_size)}, Accuracy: {current_correct/((i+1)*batch_size)}")
+             print(f"Epoch {epoch+1}/{MaxEpoch} - minibatch {i+1}, Loss: {current_loss/((i+1)*batch_size):.4f}, Accuracy: {100*current_correct/((i+1)*batch_size):.2f}%")
 
-      print(f"Epoch {epoch+1}/{MaxEpoch}, Loss: {current_loss/len(trainloader)}, Accuracy: {current_correct/len(trainloader)}")
+      print(f"Epoch {epoch+1}/{MaxEpoch}, Loss: {current_loss/len(trainloader):.4f}, Accuracy: {100*current_correct/(len(trainloader)*batch_size):.2f}%")
 
    print("Training has completed")
 
