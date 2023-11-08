@@ -19,8 +19,8 @@ from datetime import datetime
 start_time = datetime.now()
 
 #Parameters
-a = 20
-l = 11
+a = 10
+l = 21
 s = 4
 
 for label in np.arange(10):
@@ -33,6 +33,13 @@ for label in np.arange(10):
 
 X=Zload[:,:-1]
 y=Zload[:,-1]
+
+
+if not np.isnan(X).any():
+    print("The array does not contain any NaN values.")
+else:
+    exit("The array contains NaN values.")
+
 
 #
 # Initialize the imputer with the desired strategy (e.g., 'mean', 'median', or 'most_frequent')
@@ -70,10 +77,11 @@ print("Classification Report:\n", class_report)
 #--------------------------------------MLP --------------------------------
 print("------------------------------------------------------------------------------")
 print("                                MLP Classifier                              \n")
+'''
 # Create an MLP classifier
 mlp_classifier = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=1000, random_state=42)
 
-pdb.set_trace()
+#pdb.set_trace()
 
 # Train the MLP on the training data
 mlp_classifier.fit(X_train, y_train)
@@ -112,5 +120,6 @@ with open('results.txt', 'w') as f:
     f.write(f"recall: {recall_MLP}\n")
     f.write(f"f1 score: {f1_MLP}\n")
     f.write(f"Classification Report: {class_report_MLP}\n")
+'''
 
 print("--- %s seconds ---" % (datetime.now() - start_time))

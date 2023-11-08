@@ -233,9 +233,13 @@ Y=np.array(Y).reshape(-1,1)
 Z=np.concatenate((x,Y),axis=1)
 #np.save('SavedData',Z)
 
+if not np.isnan(x).any():
+    print("The array does not contain any NaN values.")
+else:
+    exit("The array contains NaN values.")
 
 for  label in np.unique(Z[:,-1]):
      np.save(f"SavedData_E{int(label)}_l{l}_s{s}_a{a}",Z[Z[:,-1]==label])
 
 
-print("--- %s seconds ---" % (datetime.now() - start_time))
+print("--- Time: %s  ---" % (datetime.now() - start_time))

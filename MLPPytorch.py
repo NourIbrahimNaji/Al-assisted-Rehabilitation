@@ -6,22 +6,33 @@ from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 from sklearn.model_selection import train_test_split
 import pdb
+from datetime import datetime
+from torch.utils.tensorboard import SummaryWriter
 
+writer = SummaryWriter()
+
+start_time = datetime.now()
 
 class MLP(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size):
         super().__init__()
 
-        self.fc1 = nn.Linear(17952, 6400)
+        self.fc1 = nn.Linear(input_size, 6400)
         self.fc2 = nn.Linear(6400, 3200)
-        self.fc3 = nn.Linear(3200, 320)
-        self.fc4 = nn.Linear(320, 10)
+        self.fc3 = nn.Linear(3200, 1600)
+        self.fc4 = nn.Linear(1600, 800)
+        self.fc5 = nn.Linear(800, 400)
+        self.fc6 = nn.Linear(400, 200)
+        self.fc7 = nn.Linear(200, 10)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
-        return F.log_softmax(self.fc4(x), dim=1)
+        x = F.relu(self.fc4(x))
+        x = F.relu(self.fc5(x))
+        x = F.relu(self.fc6(x))
+        return F.log_softmax(self.fc7(x), dim=1)
 
 
 def LoadData(l,s,a):
@@ -53,12 +64,15 @@ if __name__=='__main__':
    #Parameters
    l = 11
    s = 4
-   a = 20
+   a = 50
 
    batch_size = 100
-   MaxEpoch = 200
+   MaxEpoch = 3000
 
    X,y = LoadData(l,s,a)
+   
+   input_size=X.shape[1]
+   print(f"feature vector length (input_size) = {input_size}")
 
    # Split the data into training and testing sets
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -75,9 +89,9 @@ if __name__=='__main__':
    trainloader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=1)
    testloader = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=1)
 
-   model = MLP().to(device)
+   model = MLP(input_size).to(device)
    criterion = nn.NLLLoss()
-   optimizer = optim.SGD(model.parameters(), lr=1e-6)
+   optimizer = optim.SGD(model.parameters(), lr=1e-4)
 
    for epoch in range(0,MaxEpoch):
 
@@ -107,6 +121,8 @@ if __name__=='__main__':
 
       print(f"Epoch {epoch+1}/{MaxEpoch} - Training, Loss: {current_loss/(len(trainloader)*batch_size):.4f}, Accuracy: {100*current_correct/(len(trainloader)*batch_size):.2f}%")
 
+      writer.add_scalar("Loss/train", current_loss/(len(trainloader)*batch_size), epoch)
+      writer.add_scalar("Accuracy/train", 100*current_correct/(len(trainloader)*batch_size), epoch)
 
       #Testing
       current_loss = 0.0
@@ -127,10 +143,15 @@ if __name__=='__main__':
              current_loss += loss.item()
              output = outputs.argmax(dim=1).float()
              current_correct += (output == targets).float().sum() 
-      
+     
       print(f"Epoch {epoch+1}/{MaxEpoch} - Testing, Loss: {current_loss/(len(testloader)*batch_size):.4f}, Accuracy: {100*current_correct/(len(testloader)*batch_size):.2f}%\n")
+
+      writer.add_scalar("Loss/test", current_loss/(len(testloader)*batch_size), epoch)
+      writer.add_scalar("Accuracy/test", 100*current_correct/(len(testloader)*batch_size), epoch)
 
    print("Training has completed")
 
+print("--- Time: %s  ---" % (datetime.now() - start_time))
 
-
+writer.flush()
+writer.close()
