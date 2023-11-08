@@ -4,6 +4,7 @@ from torch import optim, nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
+from sklearn.model_selection import train_test_split
 import pdb
 
 
@@ -40,56 +41,94 @@ def LoadData(l,s,a):
 if __name__=='__main__':
    torch.manual_seed(42)
 
+   # Check if CUDA (GPU) is available
+   if torch.cuda.is_available():
+       device = torch.device("cuda")
+   else:
+       device = torch.device("cpu")
+
+   # You can print the selected device for verification
+   print("Using device:", device)
+
    #Parameters
    l = 11
    s = 4
    a = 20
 
    batch_size = 100
-   MaxEpoch = 20
+   MaxEpoch = 200
 
    X,y = LoadData(l,s,a)
 
-   tensor_x = torch.Tensor(X) # transform to torch tensor
-   tensor_y = torch.Tensor(y)
+   # Split the data into training and testing sets
+   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-   dataset = TensorDataset(tensor_x,tensor_y) # create your datset
+   tensor_x_train = torch.Tensor(X_train) # transform to torch tensor
+   tensor_y_train = torch.Tensor(y_train)
 
-   trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
-   testloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
+   tensor_x_test = torch.Tensor(X_test) # transform to torch tensor
+   tensor_y_test = torch.Tensor(y_test)
 
-   model = MLP()
+   dataset_train = TensorDataset(tensor_x_train,tensor_y_train) # create your datset
+   dataset_test = TensorDataset(tensor_x_test,tensor_y_test) # create your datset
+
+   trainloader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=1)
+   testloader = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=1)
+
+   model = MLP().to(device)
    criterion = nn.NLLLoss()
-   optimizer = optim.SGD(model.parameters(), lr=1e-5)
+   optimizer = optim.SGD(model.parameters(), lr=1e-6)
 
    for epoch in range(0,MaxEpoch):
+
+      #Training
       current_loss = 0.0
       current_correct = 0.0
 
+      # Set the model to train mode
+      model.train()
+
       for i, data in enumerate(trainloader, 0):
           inputs, targets = data
-          inputs, targets = inputs.float(), targets.long() # --> NLLLoss
+          inputs, targets = inputs.float().to(device), targets.long().to(device)
 
           optimizer.zero_grad()
-
           outputs = model(inputs)
-
           loss = criterion(outputs, targets)
-
-
           loss.backward()
-
           optimizer.step()
 
           current_loss += loss.item()
-
           output = outputs.argmax(dim=1).float()
           current_correct += (output == targets).float().sum() 
 
-          if i%10 == 0:
-             print(f"Epoch {epoch+1}/{MaxEpoch} - minibatch {i+1}, Loss: {current_loss/((i+1)*batch_size):.4f}, Accuracy: {100*current_correct/((i+1)*batch_size):.2f}%")
+          #if i%10 == 0:
+          #   print(f"Epoch {epoch+1}/{MaxEpoch} - minibatch {i+1}, Loss: {current_loss/((i+1)*batch_size):.4f}, Accuracy: {100*current_correct/((i+1)*batch_size):.2f}%")
 
-      print(f"Epoch {epoch+1}/{MaxEpoch}, Loss: {current_loss/len(trainloader):.4f}, Accuracy: {100*current_correct/(len(trainloader)*batch_size):.2f}%")
+      print(f"Epoch {epoch+1}/{MaxEpoch} - Training, Loss: {current_loss/(len(trainloader)*batch_size):.4f}, Accuracy: {100*current_correct/(len(trainloader)*batch_size):.2f}%")
+
+
+      #Testing
+      current_loss = 0.0
+      current_correct = 0.0
+
+      # Set the model to evaluation mode
+      model.eval()
+
+      # Disable gradient computation for evaluation
+      with torch.no_grad():
+         for i, data in enumerate(testloader, 0):
+             inputs, targets = data
+             inputs, targets = inputs.float().to(device), targets.long().to(device)
+
+             outputs = model(inputs)
+             loss = criterion(outputs, targets)
+
+             current_loss += loss.item()
+             output = outputs.argmax(dim=1).float()
+             current_correct += (output == targets).float().sum() 
+      
+      print(f"Epoch {epoch+1}/{MaxEpoch} - Testing, Loss: {current_loss/(len(testloader)*batch_size):.4f}, Accuracy: {100*current_correct/(len(testloader)*batch_size):.2f}%\n")
 
    print("Training has completed")
 
