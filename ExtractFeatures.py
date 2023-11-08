@@ -14,13 +14,17 @@ from multiprocessing import Process
 
 import json
 import time
+from datetime import datetime
 
-start_time = time.time()
+start_time = datetime.now()
+
 
 #Parameters
-a = 20
-l = 11
+a = 10
+l = 21
 s = 4
+
+
 # ------------------------------------------- LOAD .npz FILES --------------------------------------------- #
 dictionary3D = {}  # dictionary to store all 3D files
 dictionary2D = {}  # dictionary to store all 2D files
@@ -227,10 +231,11 @@ for exercise, features in allExercises.items():
 x=np.array(X)
 Y=np.array(Y).reshape(-1,1)
 Z=np.concatenate((x,Y),axis=1)
-np.save('SavedData',Z)
+#np.save('SavedData',Z)
 
 
 for  label in np.unique(Z[:,-1]):
      np.save(f"SavedData_E{int(label)}_l{l}_s{s}_a{a}",Z[Z[:,-1]==label])
 
-print("--- %s seconds ---" % (time.time() - start_time))
+
+print("--- %s seconds ---" % (datetime.now() - start_time))
