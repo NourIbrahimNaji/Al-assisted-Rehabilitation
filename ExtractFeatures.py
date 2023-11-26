@@ -21,8 +21,8 @@ start_time = datetime.now()
 
 #Parameters
 a = 10
-l = 21
-s = 4
+l = 3
+s = 12
 
 
 # ------------------------------------------- LOAD .npz FILES --------------------------------------------- #
@@ -236,7 +236,7 @@ Z=np.concatenate((x,Y),axis=1)
 if not np.isnan(x).any():
     print("The array does not contain any NaN values.")
 else:
-    exit("The array contains NaN values.")
+    print("The array contains NaN values.")
 
 for  label in np.unique(Z[:,-1]):
      np.save(f"SavedData_E{int(label)}_l{l}_s{s}_a{a}",Z[Z[:,-1]==label])

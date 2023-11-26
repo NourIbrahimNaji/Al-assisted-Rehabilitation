@@ -38,7 +38,7 @@ class MLP(nn.Module):
 def LoadData(l,s,a):
    for label in np.arange(10):
        print(f"Loading E{label} Data")
-       tmp = np.load(f"../PDSaveData/SavedData_E{label}_l{l}_s{s}_a{a}.npy",allow_pickle=True)
+       tmp = np.load(f"../PDSaveData_Downloaded/SavedData_E{label}_l{l}_s{s}_a{a}.npy",allow_pickle=True)
        if label == 0:
           Zload=tmp.copy()
        else:
